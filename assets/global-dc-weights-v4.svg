@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1300" viewBox="0 0 1920 1300" role="img" aria-labelledby="title desc">
+  <title id="title">Распределение API-трафика между дата-центрами России</title>
+  <desc id="desc">На карте плотности населения показаны шесть core дата-центров: Москва-1 25%, Москва-2 20%, Санкт-Петербург 10%, Краснодар 20%, Новосибирск 20%, Владивосток 5%. Екатеринбург — только CDN PoP. Европейская часть получает 75% API-трафика, Сибирь 20%, Дальний Восток 5%.</desc>
+  <style>
+    .title{font:700 38px Arial,sans-serif;fill:#f8fafc}
+    .subtitle{font:19px Arial,sans-serif;fill:#cbd5e1}
+    .group{font:700 23px Arial,sans-serif;fill:#f8fafc}
+    .card{fill:#101827;fill-opacity:.94;stroke:#a3b3c7;stroke-width:2}
+    .name{font:700 24px Arial,sans-serif;fill:#fff}
+    .detail{font:19px Arial,sans-serif;fill:#e2e8f0}
+    .percent{font:700 30px Arial,sans-serif;fill:#fff}
+    .leader{fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+    .pin{stroke:#fff;stroke-width:5}
+    .pintext{font:700 19px Arial,sans-serif;fill:#fff;text-anchor:middle;dominant-baseline:central}
+    .foot{font:18px Arial,sans-serif;fill:#cbd5e1}
+    .weightlabel{font:700 18px Arial,sans-serif;fill:#fff;text-anchor:middle}
+  </style>
+
+  <rect width="1920" height="1300" fill="#030712"/>
+  <rect width="1920" height="145" fill="#0f172a"/>
+  <text class="title" x="72" y="62">Где обслуживается API-трафик</text>
+  <text class="subtitle" x="72" y="104">Штатные веса core ДЦ · ориентир — плотность населения России</text>
+  <text class="group" x="1090" y="65">Европейская часть 75%  ·  Сибирь 20%  ·  Дальний Восток 5%</text>
+  <text class="subtitle" x="1090" y="104">Сумма весов: 100% · CDN балансируется отдельно через Anycast</text>
+
+  <image href="russia-population-heatmap.png" x="0" y="145" width="1920" height="1041"/>
+
+  <!-- Site markers are positioned on the supplied population map. -->
+  <path class="leader" d="M216 532 L264 480 L296 480"/>
+  <circle class="pin" cx="216" cy="532" r="19" fill="#2563eb"/><text class="pintext" x="216" y="532">10</text>
+  <rect class="card" x="296" y="440" width="257" height="87" rx="14"/>
+  <text class="name" x="316" y="474">Санкт-Петербург</text><text class="detail" x="316" y="505">core ДЦ · API 10%</text>
+
+  <path class="leader" d="M283 699 L325 661 L399 661"/>
+  <circle class="pin" cx="270" cy="694" r="20" fill="#2563eb"/><text class="pintext" x="270" y="694">1</text>
+  <circle class="pin" cx="301" cy="711" r="20" fill="#1d4ed8"/><text class="pintext" x="301" y="711">2</text>
+  <rect class="card" x="399" y="607" width="252" height="111" rx="14"/>
+  <text class="name" x="419" y="643">Москва · 2 ДЦ</text>
+  <text class="detail" x="419" y="674">№ 1 — API 25%</text><text class="detail" x="419" y="700">№ 2 — API 20%</text>
+
+  <path class="leader" d="M157 947 L165 1010 L266 1010"/>
+  <circle class="pin" cx="157" cy="947" r="19" fill="#2563eb"/><text class="pintext" x="157" y="947">20</text>
+  <rect class="card" x="266" y="973" width="219" height="87" rx="14"/>
+  <text class="name" x="286" y="1007">Краснодар</text><text class="detail" x="286" y="1038">core ДЦ · API 20%</text>
+
+  <path class="leader" d="M647 801 L700 762 L749 762"/>
+  <circle class="pin" cx="647" cy="801" r="19" fill="#f59e0b"/>
+  <rect class="card" x="749" y="722" width="281" height="87" rx="14"/>
+  <text class="name" x="769" y="756">Екатеринбург</text><text class="detail" x="769" y="787">только CDN PoP · API 0%</text>
+
+  <path class="leader" d="M864 921 L916 881 L967 881"/>
+  <circle class="pin" cx="864" cy="921" r="19" fill="#2563eb"/><text class="pintext" x="864" y="921">20</text>
+  <rect class="card" x="967" y="841" width="235" height="87" rx="14"/>
+  <text class="name" x="987" y="875">Новосибирск</text><text class="detail" x="987" y="906">core ДЦ · API 20%</text>
+
+  <path class="leader" d="M1618 1004 L1592 967"/>
+  <circle class="pin" cx="1618" cy="1004" r="19" fill="#2563eb"/><text class="pintext" x="1618" y="1004">5</text>
+  <rect class="card" x="1357" y="893" width="235" height="87" rx="14"/>
+  <text class="name" x="1377" y="927">Владивосток</text><text class="detail" x="1377" y="958">core ДЦ · API 5%</text>
+
+  <rect x="0" y="1186" width="1920" height="114" fill="#0f172a"/>
+  <text class="foot" x="72" y="1220">Штатные доли API:</text>
+  <rect x="275" y="1202" width="395" height="34" rx="6" fill="#1d4ed8"/>
+  <rect x="670" y="1202" width="316" height="34" fill="#2563eb"/>
+  <rect x="986" y="1202" width="158" height="34" fill="#3b82f6"/>
+  <rect x="1144" y="1202" width="316" height="34" fill="#60a5fa"/>
+  <rect x="1460" y="1202" width="316" height="34" fill="#0284c7"/>
+  <rect x="1776" y="1202" width="79" height="34" rx="6" fill="#38bdf8"/>
+  <text class="weightlabel" x="472" y="1227">Москва-1 25%</text>
+  <text class="weightlabel" x="828" y="1227">Москва-2 20%</text>
+  <text class="weightlabel" x="1065" y="1227">СПб 10%</text>
+  <text class="weightlabel" x="1302" y="1227">Краснодар 20%</text>
+  <text class="weightlabel" x="1618" y="1227">Новосибирск 20%</text>
+  <text class="weightlabel" x="1815" y="1227">5%</text>
+  <text class="foot" x="72" y="1271">Синие метки — core ДЦ (API + CDN); оранжевая — CDN PoP. Доли являются расчётной моделью, а не статистикой Ozon.</text>
+</svg>
