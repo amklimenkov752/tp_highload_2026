@@ -499,40 +499,40 @@ TLS-обмен относится к L4/NGINX-участку, а не к Envoy �
 **NGINX — TLS, HTTP и сеть:**
 
 $$
-\begin{aligned}
-N_{\mathrm{NGINX},i}(q)=\max\Bigg\{&
+\begin{gathered}
+N_{\mathrm{NGINX},i}(q)=\max(
 \left\lceil\frac{\mathrm{CPS}_i(q)}{C_{\mathrm{TLS}}}\right\rceil,
 \left\lceil\frac{\mathrm{RPS}_i}{C_{\mathrm{HTTP}}}\right\rceil,\\
-&\left\lceil\frac{B^{\mathrm{NGINX}}_i(q)}{B^{\mathrm{NGINX}}_{\mathrm{node}}}\right\rceil
-\Bigg\},\\
-N^{\mathrm{total}}_{\mathrm{NGINX},i}(q)&=2N_{\mathrm{NGINX},i}(q).
-\end{aligned}
+\left\lceil\frac{B^{\mathrm{NGINX}}_i(q)}{B^{\mathrm{NGINX}}_{\mathrm{node}}}\right\rceil
+),\\
+N^{\mathrm{total}}_{\mathrm{NGINX},i}(q)=2N_{\mathrm{NGINX},i}(q).
+\end{gathered}
 $$
 
 **Envoy — API-запросы и сеть:**
 
 $$
-\begin{aligned}
-N_{\mathrm{Envoy},i}=\max\Bigg\{&
+\begin{gathered}
+N_{\mathrm{Envoy},i}=\max(
 \left\lceil\frac{\mathrm{RPS}_i}{C_{\mathrm{Envoy}}}\right\rceil,
 \left\lceil\frac{B^{\mathrm{Envoy}}_i}{B^{\mathrm{Envoy}}_{\mathrm{node}}}\right\rceil
-\Bigg\},\\
-N^{\mathrm{total}}_{\mathrm{Envoy},i}&=2N_{\mathrm{Envoy},i}.
-\end{aligned}
+),\\
+N^{\mathrm{total}}_{\mathrm{Envoy},i}=2N_{\mathrm{Envoy},i}.
+\end{gathered}
 $$
 
 **L4 — сеть, открытия TCP-соединений, пакеты и состояния соединений:**
 
 $$
-\begin{aligned}
-N_{\mathrm{L4},i}(q)=\max\Bigg\{&
+\begin{gathered}
+N_{\mathrm{L4},i}(q)=\max(
 \left\lceil\frac{B^{\mathrm{L4}}_i(q)}{B^{\mathrm{L4}}_{\mathrm{node}}}\right\rceil,
 \left\lceil\frac{\mathrm{TCPopen}^{\mathrm{L4}}_i(q)}{C_{\mathrm{L4,open}}}\right\rceil,\\
-&\left\lceil\frac{\mathrm{PPS}^{\mathrm{L4}}_i}{C_{\mathrm{L4,PPS}}}\right\rceil,
+\left\lceil\frac{\mathrm{PPS}^{\mathrm{L4}}_i}{C_{\mathrm{L4,PPS}}}\right\rceil,
 \left\lceil\frac{\mathrm{Conn}^{\mathrm{L4}}_i}{C_{\mathrm{L4,Conn}}}\right\rceil
-\Bigg\},\\
-N^{\mathrm{total}}_{\mathrm{L4},i}(q)&=2N_{\mathrm{L4},i}(q).
-\end{aligned}
+),\\
+N^{\mathrm{total}}_{\mathrm{L4},i}(q)=2N_{\mathrm{L4},i}(q).
+\end{gathered}
 $$
 
 `PPS_L4` — измеренный пик пакетов/с на L4 с учётом обоих плеч прокси; `Conn_L4` — число одновременно поддерживаемых TCP-соединений, а не клиентских сеансов. Пределы `C_L4,open`, `C_L4,PPS` и `C_L4,Conn` определяются совместным нагрузочным тестом выбранной реализации L4. Для каждой зоны требуется полный `N_L4`; даже когда `N_L4=1`, запись **`2N`** отражает размещение по независимым зонам и проверку отказа одной из них.
