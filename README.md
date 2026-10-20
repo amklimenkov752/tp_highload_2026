@@ -568,6 +568,160 @@ $$
 
 У площадки с исходными 20% это **26,67%**, или **12 834,08 peak RPS** вместо 9 625,56. Для неё следует заново применить все формулы этого раздела к RPS, CPS и сетевой нагрузке после переключения. Реальный результат зависит от BGP-маршрутов Anycast, поэтому окончательный резерв проверяется на фактическом распределении и испытанием отказа ДЦ.
 
+## 6. Логическая схема БД
+### 6.1 Схема БД
+
+```mermaid
+erDiagram
+    users {
+        bigint id PK
+        varchar fname
+        varchar sname
+        varchar username UK
+        varchar password_hash
+        varchar email UK
+        varchar telephone UK
+        date birth_date
+        timestamptz created_at
+    }
+
+    products {
+        bigint id PK
+        varchar title
+        text description
+        bigint category_id FK
+        decimal price
+        integer stock_quantity
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    categories {
+        bigint id PK
+        bigint parent_id FK
+        varchar name
+        varchar slug UK
+        timestamptz created_at
+    }
+
+    carts {
+        bigint id PK
+        bigint user_id FK, UK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    sessions {
+        uuid id PK
+        bigint user_id FK
+        varchar token_hash UK
+        inet ip_address
+        varchar user_agent
+        timestamptz expires_at
+        timestamptz created_at
+    }
+
+    cart_items {
+        bigint id PK
+        bigint cart_id FK
+        bigint product_id FK
+        integer quantity
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    orders {
+        bigint id PK
+        bigint user_id FK
+        bigint pickup_point_id FK
+        varchar status
+        decimal total_amount
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    pickup_points {
+        bigint id PK
+        varchar name
+        varchar address
+        decimal latitude
+        decimal longitude
+        varchar working_hours
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    product_images {
+        bigint id PK
+        bigint product_id FK
+        varchar image_url
+        varchar alt_text
+        integer sort_order
+        timestamptz created_at
+    }
+
+    user_recommendations {
+        bigint id PK
+        bigint user_id FK
+        bigint product_id FK
+        decimal score
+        integer position
+        timestamptz generated_at
+    }
+
+    user_product_events {
+        bigint id PK
+        bigint user_id FK
+        bigint product_id FK
+        varchar event_type
+        timestamptz occurred_at
+    }
+
+    order_items {
+        bigint id PK
+        bigint order_id FK
+        bigint product_id FK
+        integer quantity
+        decimal unit_price
+    }
+
+    reviews {
+        bigint id PK
+        bigint user_id FK
+        bigint product_id FK
+        bigint order_item_id FK, UK
+        smallint rating
+        text body
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    categories ||--o{ categories : содержит
+    categories ||--o{ products : содержит
+    users ||--o| carts : владеет
+    users ||--o{ sessions : имеет
+    carts ||--o{ cart_items : содержит
+    products ||--o{ cart_items : находится
+    users ||--o{ orders : оформляет
+    pickup_points ||--o{ orders : выбран
+    products ||--o{ product_images : имеет
+    users ||--o{ user_recommendations : получает
+    products ||--o{ user_recommendations : рекомендован
+    users ||--o{ user_product_events : совершает
+    products ||--o{ user_product_events : участвует
+    orders ||--|{ order_items : содержит
+    products ||--o{ order_items : заказывается
+    order_items ||--o| reviews : имеет
+    users ||--o{ reviews : оставляет
+    products ||--o{ reviews : имеет
+```
+
+Ограничения целостности:
+
+- `cart_items`: `UNIQUE(cart_id, product_id)`. Один товар может присутствовать в корзине только одной строкой.
+- `reviews`: триггер перед `INSERT` или `UPDATE` проверяет, что `order_item_id` входит в заказ пользователя `user_id`, позиция содержит товар `product_id`, а заказ имеет статус `paid` или `received`. Обычное ограничение `CHECK` для этого не подходит, поскольку оно не может обращаться к таблицам `orders` и `order_items`.
+
+
 ## Список источников
 1. <a id="source1"> https://corp.ozon.ru/ru/sth/ozon-pokazyvaet-pribyl-chetvertyy-kvartal-podryad-5a3eed7d?__rr=3</a>
 2. <a id="source2"> https://www.similarweb.com/ru/website/ozon.ru/#geography</a>
