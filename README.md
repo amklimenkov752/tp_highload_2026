@@ -1406,6 +1406,171 @@ flowchart TD
 | Prometheus + Grafana + Alertmanager | Метрики, дашборды и оповещения | Контроль RPS, latency, ошибок, CDC/consumer lag, возраста outbox без archive ack и загрузки ресурсов. |
 | OpenTelemetry Collector + Grafana Tempo | Распределённая трассировка | Сквозная диагностика внешнего запроса, межсервисных вызовов и шагов Saga. |
 
+## 10. Схема проекта
+
+### 10.1. Схема взаимодействия сервисов
+
+На схеме показан полный путь пользовательского запроса: от внешней балансировки до локальных сервисов выбранного core-ДЦ и их основных хранилищ. Все stateless-сервисы развёрнуты в каждом из шести core-ДЦ; запрос обслуживается локальными репликами выбранной площадки и не проходит через другой core-ДЦ.
+
+```mermaid
+flowchart TB
+    C[Web- и mobile-клиенты]
+    DNS[DNS: стабильные Anycast-адреса]
+    APIIP[Anycast API IP]
+    CDNIP[Anycast CDN IP]
+    BGP[BGP: выбор доступного core-ДЦ]
+    CDN[Ближайший доступный CDN PoP]
+    S3[(S3: изображения товаров)]
+
+    C -->|HTTPS API| DNS
+    DNS --> APIIP --> BGP
+    C -->|HTTPS: versioned image URL| DNS
+    DNS --> CDNIP --> CDN
+    CDN -->|cache miss| S3
+
+    subgraph DC[Один из 6 active-active core-ДЦ]
+        EDGE[Пограничные маршрутизаторы и ECMP]
+
+        subgraph ZA[Зона отказа A]
+            L4A[L4 TCP Proxy]
+            NA[NGINX: TLS termination]
+            EA[Envoy API Gateway]
+            L4A --> NA --> EA
+        end
+
+        subgraph ZB[Зона отказа B]
+            L4B[L4 TCP Proxy]
+            NB[NGINX: TLS termination]
+            EB[Envoy API Gateway]
+            L4B --> NB --> EB
+        end
+
+        EDGE --> L4A
+        EDGE --> L4B
+
+        GW[Локальная балансировка по здоровым репликам]
+        EA --> GW
+        EB --> GW
+
+        AUTH[Сервис пользователей и сессий]
+        REC[Сервис рекомендаций]
+        PRODUCT[Сервис каталога и товаров]
+        SEARCH[Сервис поиска]
+        CART[Сервис корзины]
+        PICKUP[Сервис ПВЗ]
+        ORDER[Сервис заказов / Saga]
+        REVIEW[Сервис отзывов и рейтинга]
+        EVENTS[Сервис приёма событий]
+
+        GW --> AUTH
+        GW --> REC
+        GW --> PRODUCT
+        GW --> SEARCH
+        GW --> CART
+        GW --> PICKUP
+        GW --> ORDER
+        GW --> REVIEW
+        GW --> EVENTS
+
+        ORDER -->|gRPC: списание или компенсация| PRODUCT
+        REVIEW -->|gRPC: проверка покупки| ORDER
+        REC -->|gRPC: актуальные карточки| PRODUCT
+
+        USERPG[(PostgreSQL: users)]
+        SESSION[(Redis: sessions)]
+        FEED[(Redis: feed cache)]
+        FEATURES[(Redis: recommendation features)]
+        PRODUCTCACHE[(Redis: product / catalog cache)]
+        PRODUCTPG[(PostgreSQL: products и stock)]
+        SEARCHOS[(OpenSearch: products search)]
+        RECOS[(OpenSearch: candidates)]
+        CARTPG[(PostgreSQL: carts)]
+        PICKUPPG[(PostgreSQL + PostGIS: pickup points)]
+        ORDERPG[(PostgreSQL: orders)]
+        REVIEWPG[(PostgreSQL: reviews и rating)]
+        KAFKA[(Kafka)]
+
+        AUTH --> USERPG
+        AUTH --> SESSION
+        REC --> FEED
+        REC --> FEATURES
+        REC --> RECOS
+        PRODUCT --> PRODUCTCACHE
+        PRODUCT --> PRODUCTPG
+        SEARCH --> SEARCHOS
+        CART --> CARTPG
+        PICKUP --> PICKUPPG
+        ORDER --> ORDERPG
+        REVIEW --> REVIEWPG
+        EVENTS --> KAFKA
+    end
+
+    BGP --> EDGE
+    PRODUCTPG -.->|URL и метаданные| S3
+```
+
+Стрелка от `product_images` к S3 на схеме логическая: PostgreSQL хранит метаданные и versioned URL, а сами файлы находятся в объектном хранилище. Клиент не обращается к S3 напрямую — изображения выдаёт CDN.
+
+### 10.2. Асинхронные потоки данных
+
+Синхронный API-путь используется там, где результат нужен для ответа пользователю. Обновление поисковых индексов, рекомендаций и аналитики вынесено из пользовательского запроса и выполняется через Kafka.
+
+```mermaid
+flowchart LR
+    CLIENT[Клиент]
+    EVENTAPI[Сервис приёма событий]
+    STOCKTX[Транзакция товарного сервиса]
+    PG[(PostgreSQL primary, outbox и WAL)]
+    DEB[Debezium / Kafka Connect]
+    K[(Kafka, RF=3)]
+
+    CLIENT -->|показы, просмотры, корзина| EVENTAPI
+    EVENTAPI -->|асинхронная публикация| K
+    STOCKTX -->|остаток + active + outbox| PG
+    PG -->|подтверждённые изменения| DEB
+    DEB --> K
+
+    K --> PROFILE[Обработчик профиля интересов]
+    PROFILE --> FEATURES[(Redis: recommendation features)]
+    FEATURES --> REC[Сервис рекомендаций]
+
+    K --> PROJECTOR[Проекторы товаров и рейтингов]
+    PROJECTOR --> SEARCH[(OpenSearch: живой поиск)]
+    PROJECTOR --> CANDIDATES[(OpenSearch: следующая версия кандидатов)]
+    PROJECTOR -->|инвалидация| CACHE[(Redis: product cache)]
+
+    K --> ANALYTICS[Аналитические consumers]
+    ANALYTICS --> CH[(ClickHouse: события и история движений)]
+    ANALYTICS -->|archive ack после успешной записи| K
+    K --> ACK[Обработчик archive ack]
+    ACK -->|archived_at| PG
+```
+
+### 10.3. Как проходят потоки данных
+
+1. **Обычный API-запрос.** Клиент получает стабильный Anycast API-адрес из DNS. BGP приводит соединение в доступный core-ДЦ. Внутри ДЦ ECMP выбирает L4 одной из двух зон, L4 проксирует TCP без завершения TLS, NGINX завершает TLS, а Envoy маршрутизирует HTTP-запрос к здоровой локальной реплике Go-сервиса. Межсервисные вызовы выполняются по gRPC; клиентская балансировка получает адреса из service discovery и не возвращает трафик во внешний gateway.
+2. **Чтение каталога, поиска и рекомендаций.** Каталог сначала обращается к Redis-кэшу, а при промахе — к PostgreSQL. Поиск читает локальный индекс `products_search`. Рекомендации читают профиль интересов из отдельного Redis Cluster, кандидатов из `recommendation_candidates`, сохраняют текущий и подготовленный блоки ленты в Redis и получают актуальные карточки у сервиса товаров.
+3. **Изображения.** API возвращает versioned URL. Клиент загружает файл с отдельного Anycast-адреса CDN. При попадании объект отдаётся с edge-кэша, при промахе CDN читает S3-origin. Этот поток не проходит через L4, NGINX, Envoy и бизнес-сервисы.
+4. **Оформление заказа.** Сервис заказов создаёт `PENDING` в заказном шарде и по gRPC запускает списания в товарных шардах. Каждый товарный шард атомарно меняет остаток, active-состояние и outbox. После всех успешных ответов заказ становится `CONFIRMED`; при ошибке Saga отправляет компенсации и переводит заказ в `REJECTED` только после их подтверждения. Повторы безопасны благодаря `idempotency_key` и состоянию `(product_id, order_id)`.
+5. **Отзывы.** Сервис отзывов синхронно проверяет через сервис заказов, что пользователь купил товар. Отзыв и агрегат рейтинга записываются одной транзакцией. После коммита CDC обновляет рейтинг в поиске и инвалидирует кэш карточки.
+6. **События и персонализация.** Клиент асинхронно отправляет только реально показанные карточки и действия пользователя. Kafka партиционирует их по `user_id` или `anonymous_session_id`. Consumers обновляют профиль интересов в Redis и пакетно записывают сырые события в ClickHouse; отправка телеметрии не блокирует пользовательский запрос.
+7. **CDC и архив движений.** Debezium читает только подтверждённые изменения из WAL PostgreSQL и публикует их в Kafka. Проекторы обновляют OpenSearch и кэши идемпотентно. События движений остатка попадают в ClickHouse по стабильному `event_id`; только после успешной записи archive ack разрешает пометить outbox как архивированный.
+
+### 10.4. Балансировка нагрузки
+
+**Внешняя балансировка:**
+
+- API использует один стабильный Anycast-адрес. Его анонсируют шесть core-ДЦ: Москва-1, Москва-2, Санкт-Петербург, Краснодар, Новосибирск и Владивосток. BGP выбирает площадку по сетевой топологии; доли из раздела 4 используются для планирования мощности, а не как точные правила распределения.
+- При недоступности обеих зон ingress площадка отзывает API-анонс. После сходимости BGP новые соединения приходят в другой здоровый core-ДЦ. Открытые соединения при отказе переподключаются клиентом.
+- Изображения используют отдельный Anycast CDN-префикс. CDN PoP выбирается независимо от API-ДЦ; Екатеринбург работает только как CDN PoP и не принимает API.
+
+**Внутренняя балансировка:**
+
+- В каждом core-ДЦ две независимые active-active зоны. Пограничные маршрутизаторы по ECMP распределяют новые соединения между готовыми L4 TCP Proxy. При отказе зонального ingress его локальный маршрут к VIP исключается из ECMP.
+- L4 выбирает здоровый NGINX своей зоны, NGINX — Envoy, Envoy — готовую локальную реплику нужного API-сервиса. Readiness-пробы исключают неисправные экземпляры из балансировки.
+- Для L4, NGINX и Envoy применяется резервирование `2N`: каждая зона имеет мощность для всего пика ДЦ. Для stateless-сервисов применяется `N+1`, минимум две реплики, а Kubernetes горизонтально масштабирует их по нагрузке.
+- Внутренние gRPC-клиенты балансируют вызовы по адресам service discovery. Подключения к PostgreSQL мультиплексирует PgBouncer, запросы направляются в нужный шард по ключу (`user_id`, `product_id` или `home_region`). Redis Cluster, OpenSearch и Kafka распределяют данные по своим слотам, шардам и партициям; это балансировка stateful-уровня, отдельная от ingress.
+
 ## Список источников
 1. <a id="source1"> https://corp.ozon.ru/ru/sth/ozon-pokazyvaet-pribyl-chetvertyy-kvartal-podryad-5a3eed7d?__rr=3</a>
 2. <a id="source2"> https://www.similarweb.com/ru/website/ozon.ru/#geography</a>
