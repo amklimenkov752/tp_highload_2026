@@ -1603,18 +1603,22 @@ flowchart LR
     SEARCH[Сервис поиска]
     OS[(OpenSearch<br/>products_search)]
     PRODUCT[Сервис товаров]
+    CACHE[(Redis<br/>product cache)]
     PG[(PostgreSQL<br/>products)]
 
     C -->|Строка поиска и фильтры| GW --> SEARCH
     SEARCH --> OS
     OS -->|ID найденных товаров| SEARCH
     SEARCH -->|Актуальные карточки при необходимости| PRODUCT
-    PRODUCT --> PG --> PRODUCT
+    PRODUCT -->|Проверить кэш| CACHE
+    CACHE -->|Cache hit| PRODUCT
+    CACHE -->|Cache miss| PG --> PRODUCT
+    PRODUCT -->|Сохранить результат| CACHE
     PRODUCT --> SEARCH
     SEARCH -->|Результаты поиска| C
 ```
 
-Поиск читает локальный индекс `products_search`. PostgreSQL остаётся источником актуальных товарных данных.
+Поиск читает локальный индекс `products_search`. Для получения актуальных карточек товарный сервис сначала проверяет Redis-кэш, а при промахе обращается к PostgreSQL. PostgreSQL остаётся источником актуальных товарных данных.
 
 #### Формирование персональной ленты
 
