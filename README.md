@@ -2071,3 +2071,13 @@ Debezium читает только подтверждённые изменени
 6. <a id="source6"> https://78.rosstat.gov.ru/storage/mediabank/11000825_022025.pdf</a>
 7. <a id="source7"> https://blog.nginx.org/blog/testing-performance-nginx-ingress-controller-kubernetes</a>
 8. <a id="source8"> https://blog.nginx.org/blog/testing-the-performance-of-nginx-and-nginx-plus-web-servers</a>
+9. <a id="source9"> https://www.supermicro.com/en/products/system/datasheet/as-1114s-wn10rt</a>
+10. <a id="source10"> https://www.amd.com/content/dam/amd/en/documents/epyc-business-docs/datasheets/amd-epyc-7003-series-product-datasheet.pdf</a>
+11. <a id="source11"> https://images.samsung.com/is/content/samsung/assets/rs/memory-storage/ssd-ove-data-center/samsung_ssd_PM9A3_data_sheet_rev1_0.pdf</a>
+12. <a id="source12"> https://network.nvidia.com/files/doc-2020/pb-connectx-5-en-card.pdf</a>
+13. <a id="source13"> https://selectel.ru/services/colocation/rentsquare/server-rack/</a>
+14. <a id="source14"> https://www.rtcloud.ru/about/requisites/preyskurant.php</a>
+15. <a id="source15"> https://yandex.cloud/ru/docs/compute/pricing</a>
+16. <a id="source16"> https://yandex.cloud/ru/docs/storage/pricing</a>
+17. <a id="source17"> https://yandex.cloud/ru/docs/cdn/pricing</a>
+18. <a id="source18"> https://land.vkcloud-static.ru/cdn/</a>
